@@ -1,0 +1,13 @@
+﻿{
+    "dataset_interactions":  149956,
+    "model":  "artifacts/svd_model.joblib",
+    "model_rmse":  1.3613,
+    "dataset_users":  47506,
+    "api_p99_ms":  4.91,
+    "model_mae":  1.1953,
+    "date":  "2026-11-17T19:52:23.5699758-03:00",
+    "dataset_products":  5000,
+    "api_p95_ms":  4.91,
+    "fallback":  "verified",
+    "api_p50_ms":  3.73
+}

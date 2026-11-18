@@ -1,0 +1,9 @@
+{
+  "interactions": 149956,
+  "users": 47506,
+  "products": 5000,
+  "factors": 20,
+  "mae": 1.1953,
+  "rmse": 1.3613,
+  "global_mean": 2.9999
+}

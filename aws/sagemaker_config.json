@@ -1,0 +1,20 @@
+{
+  "region": "us-east-1",
+  "model_name": "shopfast-svd",
+  "endpoint_name": "shopfast-recommender",
+  "s3_model_uri": "s3://REPLACE_WITH_BUCKET/models/svd_model.tar.gz",
+  "inference_image_uri": "REPLACE_WITH_ECR_IMAGE",
+  "instance_type": "ml.t3.medium",
+  "initial_instance_count": 1,
+  "environment": {
+    "MODEL_PATH": "/opt/ml/model/svd_model.joblib"
+  },
+  "cloudwatch": {
+    "enable_cloudwatch_metrics": true,
+    "log_collection": true
+  },
+  "budget_guardrail": {
+    "maximum_monthly_usd": 200,
+    "deployment_requires_explicit_authorization": true
+  }
+}

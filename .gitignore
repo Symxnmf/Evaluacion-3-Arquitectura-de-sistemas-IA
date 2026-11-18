@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.streamlit/
+.env
+artifacts/*.joblib
+!artifacts/.gitkeep
+evidence/
+*.log
+

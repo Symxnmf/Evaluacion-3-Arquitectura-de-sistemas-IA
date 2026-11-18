@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ShopFast S3 and CloudWatch resources. SageMaker endpoint excluded until budget approval.
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Globally unique S3 bucket name
+
+Resources:
+  ShopFastBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  ShopFastLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /shopfast/api
+      RetentionInDays: 14
+
+Outputs:
+  BucketName:
+    Value: !Ref ShopFastBucket
+  LogGroupName:
+    Value: !Ref ShopFastLogGroup
