@@ -86,7 +86,7 @@ def main() -> None:
     ]
 
     story.append(Paragraph(sections[0][0], styles["Title"]))
-    story.append(Paragraph(sections[0][1], styles["Subtitle"]))
+    story.append(Paragraph(sections[0][1], styles["Heading2"]))
     story.append(Spacer(1, 8 * mm))
     story.append(Paragraph(f"Fecha: {date.today().isoformat()}", styles["Normal"]))
     story.append(Paragraph("Nota: todos los datos empresariales no medidos se presentan como objetivos.", styles["Normal"]))
