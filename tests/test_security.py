@@ -1,4 +1,4 @@
-from api.auth import create_token, require_token
+from api.auth import create_token
 
 
 def test_token_is_signed_and_contains_subject():

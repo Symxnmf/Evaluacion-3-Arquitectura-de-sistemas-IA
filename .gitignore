@@ -2,10 +2,12 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
-.streamlit/
 .env
-artifacts/*.joblib
-!artifacts/.gitkeep
-evidence/
+evidence/loadtest_exceptions.csv
+evidence/loadtest_failures.csv
+evidence/loadtest_stats.csv
+evidence/loadtest_stats_history.csv
+evidence/loadtest_clean_exceptions.csv
+evidence/loadtest_clean_failures.csv
 *.log
 
