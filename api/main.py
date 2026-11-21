@@ -1,20 +1,28 @@
-from __future__ import annotations
-
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 
 from api.auth import create_token, require_token
+from messaging.rabbitmq import RabbitMQPublishError, publish_event
 from model.svd_recommender import SVDModel
 
 
+load_dotenv()
 limiter = Limiter(key_func=get_remote_address)
+
+
+class UserInteraction(BaseModel):
+    user_id: int = Field(gt=0)
+    product_id: int = Field(gt=0)
+    interaction: str = Field(min_length=1, max_length=100)
 
 
 @asynccontextmanager
@@ -49,6 +57,29 @@ async def login(request: Request):
     if os.getenv("ENVIRONMENT", "development") == "development":
         return {"access_token": create_token(), "token_type": "bearer"}
     raise HTTPException(status_code=403, detail="Use the enterprise identity provider")
+
+
+@app.post("/events/user-interaction", tags=["Messaging"])
+@limiter.limit("30/minute")
+async def publish_user_interaction(
+    request: Request,
+    payload: dict = Depends(require_token),
+    interaction: UserInteraction = Body(...),
+):
+    event_payload = interaction.model_dump()
+    event_payload["subject"] = payload["sub"]
+    try:
+        await publish_event("user.interaction", event_payload)
+    except RabbitMQPublishError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="El evento no pudo publicarse. RabbitMQ no está disponible.",
+        ) from exc
+    return {
+        "published": True,
+        "event_type": "user.interaction",
+        "payload": event_payload,
+    }
 
 
 @app.get("/health", tags=["Operations"])
