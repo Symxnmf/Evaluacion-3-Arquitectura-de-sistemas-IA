@@ -1,390 +1,667 @@
-# 🛒 ShopFast – Solución Empresarial de Inteligencia Artificial
+# ShopFast EP3
 
-### Evaluación Parcial 3 | Arquitectura de Sistemas de IA – ITY1102
+## Solución empresarial de inteligencia artificial
 
+**Evaluación Parcial 3 — Arquitectura de Sistemas de IA (ITY1102)**  
 **Institución:** Duoc UC  
 **Docente:** Ricardo Aravena  
 **Integrantes:** Simón Mena y Benjamín Castro  
-**Proyecto:** ShopFast – Sistema Inteligente de Recomendación de Productos
+**Proyecto:** ShopFast — Sistema Inteligente de Recomendación de Productos
 
----
+> Este README distingue entre funcionalidades implementadas, verificadas localmente,
+> preparadas para entrega y pendientes de despliegue. Los datos del dataset son
+> sintéticos y los objetivos comerciales no constituyen resultados de producción.
 
-## 1. Descripción del proyecto
+## Tabla de contenidos
 
-ShopFast es una solución empresarial de inteligencia artificial orientada a mejorar la experiencia de compra en una plataforma de comercio electrónico mediante un sistema de recomendación personalizado.
+1. [Resumen ejecutivo](#1-resumen-ejecutivo)
+2. [Contexto empresarial](#2-contexto-empresarial)
+3. [Estado técnico actual](#3-estado-técnico-actual)
+4. [Arquitectura actual](#4-arquitectura-actual)
+5. [Tecnologías](#5-tecnologías)
+6. [Estructura del repositorio](#6-estructura-del-repositorio)
+7. [Modelo SVD](#7-modelo-svd)
+8. [Dataset y métricas](#8-dataset-y-métricas)
+9. [API REST](#9-api-rest)
+10. [Autenticación y seguridad](#10-autenticación-y-seguridad)
+11. [Dashboard](#11-dashboard)
+12. [Instalación local](#12-instalación-local)
+13. [Variables de entorno](#13-variables-de-entorno)
+14. [Ejecución local](#14-ejecución-local)
+15. [Ejecución con Docker](#15-ejecución-con-docker)
+16. [RabbitMQ](#16-rabbitmq)
+17. [Pruebas y resultados](#17-pruebas-y-resultados)
+18. [AWS y SageMaker](#18-aws-y-sagemaker)
+19. [Evidencias](#19-evidencias)
+20. [Limitaciones y mejoras futuras](#20-limitaciones-y-mejoras-futuras)
+21. [Conclusiones](#21-conclusiones)
+22. [Referencias](#22-referencias)
 
-El proyecto utiliza filtrado colaborativo mediante el algoritmo **Singular Value Decomposition (SVD)** para analizar las interacciones históricas de los usuarios y generar recomendaciones Top 10 de productos.
+## 1. Resumen ejecutivo
 
-La solución contempla una arquitectura basada en microservicios, APIs REST, procesamiento de mensajes, visualización de indicadores empresariales e integración de servicios de inteligencia artificial en AWS.
+ShopFast es un prototipo empresarial de recomendaciones para comercio electrónico.
+El núcleo implementado utiliza filtrado colaborativo mediante Singular Value
+Decomposition (SVD), expuesto por una API FastAPI y visualizado mediante un
+dashboard Streamlit.
 
-El objetivo es desarrollar una plataforma escalable, reproducible y preparada para su despliegue en infraestructura cloud.
+La implementación actual permite:
+
+- Entrenar y guardar un modelo SVD reproducible.
+- Generar recomendaciones Top 10.
+- Usar fallback por popularidad para usuarios desconocidos.
+- Consultar recomendaciones y métricas mediante una API REST protegida con JWT.
+- Publicar eventos `user.interaction` desde FastAPI.
+- Recibir y procesar eventos mediante un consumidor RabbitMQ independiente.
+- Ejecutar API, dashboard, consumidor y RabbitMQ con Docker Compose.
+- Ejecutar pruebas unitarias, API, seguridad y carga local.
+- Preparar artefactos para una futura integración con S3, SageMaker y CloudWatch.
+
+El sistema se encuentra validado localmente. No existe todavía un despliegue
+productivo en AWS ni una medición empresarial A/B.
 
 ## 2. Contexto empresarial
 
-ShopFast considera el siguiente escenario de negocio:
+El escenario académico original considera un comercio electrónico de tecnología:
 
-| Indicador | Valor |
+| Indicador | Situación o referencia |
 |---|---:|
 | Usuarios activos proyectados | 50.000 |
-| Catálogo de productos | 5.000 |
-| Interacciones históricas | 150.000 |
+| Productos del catálogo | 5.000 |
+| Interacciones históricas de referencia | 150.000 |
 | Conversión inicial informada | 2,3% |
 | Conversión objetivo | 4,0% |
 | Ticket promedio inicial | USD 85 |
 | Ticket promedio objetivo | USD 120 |
+| Presupuesto AWS máximo de referencia | USD 200 mensuales |
+| Objetivo de respuesta | Menos de 500 ms |
+| Disponibilidad objetivo | 99% |
 
-Estos indicadores representan el escenario empresarial definido para el proyecto. Los objetivos comerciales deberán validarse mediante experimentación A/B y datos de producción.
+Estos valores son antecedentes del caso y objetivos de evaluación. La conversión,
+el ticket y la disponibilidad no han sido medidos en producción por este
+repositorio.
 
-## 3. Arquitectura tecnológica
+## 3. Estado técnico actual
 
-La arquitectura contempla los siguientes componentes:
+| Componente | Estado actual |
+|---|---|
+| Modelo SVD | Implementado, entrenado y guardado localmente |
+| Dataset | Sintético, reproducible y usado por el entrenamiento |
+| API FastAPI | Implementada y probada localmente |
+| JWT y rate limiting | Implementados y probados |
+| Dashboard Streamlit | Implementado y validado mediante arranque HTTP local |
+| RabbitMQ | Integrado y probado con Docker Compose |
+| Consumidor | Servicio independiente integrado en Compose |
+| Docker Compose | Configurado para API, consumidor, dashboard y RabbitMQ |
+| AWS S3/SageMaker/CloudWatch | Preparados como configuración; no desplegados |
+| MySQL y Node.js | Parte del diseño académico previo, no implementados en este repositorio |
+| EKS | Considerado en la arquitectura objetivo; no desplegado |
 
-| Componente | Tecnología | Función |
-|---|---|---|
-| Modelo IA | Python / SVD | Recomendaciones personalizadas |
-| API de recomendaciones | FastAPI | Exposición del modelo |
-| API de usuarios | Node.js | Gestión de usuarios |
-| Dashboard | Streamlit | Visualización empresarial |
-| Base de datos | MySQL | Persistencia transaccional |
-| Mensajería | RabbitMQ | Comunicación asíncrona |
-| Contenedores | Docker | Empaquetamiento de servicios |
-| Almacenamiento cloud | AWS S3 | Dataset y artefactos |
-| Machine Learning cloud | AWS SageMaker | Entrenamiento e inferencia |
-| Monitoreo | AWS CloudWatch | Logs y métricas |
-| Orquestación | AWS EKS | Despliegue de microservicios |
+## 4. Arquitectura actual
 
-### Flujo general
+```mermaid
+flowchart LR
+    U[Cliente o evaluador] --> API[FastAPI]
+    API --> AUTH[JWT y rate limiting]
+    API --> SVD[Modelo SVD local]
+    API --> EX[Exchange shopfast.events]
+    EX --> Q[Cola shopfast.interactions]
+    Q --> C[Consumidor independiente]
+    Q --> R[Cola de reintento]
+    Q --> DLQ[Cola de mensajes fallidos]
+    D[Streamlit] --> ART[Artefactos y dataset]
+    S3[S3 futuro] -.-> SM[SageMaker futuro]
+    SM -.-> CW[CloudWatch futuro]
+```
 
-1. El usuario interactúa con la plataforma ShopFast.
-2. Las interacciones son procesadas por los servicios empresariales.
-3. La API REST consulta el motor de recomendaciones.
-4. El modelo SVD genera recomendaciones personalizadas.
-5. RabbitMQ permite la comunicación asíncrona entre servicios.
-6. El dashboard presenta resultados y métricas.
-7. AWS proporciona la infraestructura para el futuro despliegue cloud.
+### Flujo de recomendación
 
-## 4. Modelo de inteligencia artificial – SVD
+1. El cliente solicita un token local mediante `/auth/token`.
+2. Envía un usuario autenticado a `/recommendations/{user_id}`.
+3. FastAPI consulta el modelo SVD cargado desde `artifacts/svd_model.joblib`.
+4. El modelo devuelve hasta 10 productos.
+5. Si el usuario no existe, se utiliza popularidad como fallback.
 
-El proyecto implementa un sistema de recomendación basado en filtrado colaborativo.
+### Flujo de mensajería
 
-### Características del entrenamiento
+1. El cliente publica un evento con `POST /events/user-interaction`.
+2. FastAPI llama a `publish_event()` de `messaging/rabbitmq.py`.
+3. RabbitMQ recibe el mensaje en `shopfast.events`.
+4. La routing key `user.interaction` lo dirige a `shopfast.interactions`.
+5. El consumidor procesa y confirma el mensaje.
+6. Los errores se reintentan hasta tres veces y luego se envían a
+   `shopfast.interactions.failed`.
 
-| Parámetro | Resultado |
+## 5. Tecnologías
+
+| Área | Tecnología utilizada |
+|---|---|
+| Lenguaje | Python 3.13 verificado localmente |
+| API | FastAPI 0.115.12, Uvicorn |
+| Seguridad | PyJWT, HTTP Bearer, SlowAPI |
+| Machine Learning | NumPy, Pandas, SciPy, Scikit-Learn, Joblib |
+| Modelo | SVD sobre matriz usuario-producto |
+| Dashboard | Streamlit y Plotly |
+| Mensajería | RabbitMQ 3.13 Management y aio-pika |
+| Contenedores | Docker y Docker Compose |
+| Pruebas | Pytest, pytest-asyncio y Locust |
+| Informe | ReportLab |
+| Cloud preparado | S3, SageMaker y CloudWatch |
+
+Node.js, MySQL y EKS pertenecen al diseño arquitectónico académico de etapas
+anteriores, pero no tienen implementación ejecutable en este repositorio actual.
+
+## 6. Estructura del repositorio
+
+```text
+Evaluacion_3/
+├── api/
+│   ├── __init__.py
+│   ├── auth.py
+│   └── main.py
+├── artifacts/
+│   ├── model_metrics.json
+│   └── svd_model.joblib
+├── aws/
+│   ├── README.md
+│   ├── cloudformation.yml
+│   ├── inference.py
+│   └── sagemaker_config.json
+├── dashboard/
+│   └── app.py
+├── data/
+│   └── raw/
+│       └── interactions.csv
+├── docs/
+│   ├── aws_integration.md
+│   ├── business_improvement.md
+│   ├── Informe_Tecnico_ShopFast_EP3.pdf
+│   ├── presentation.md
+│   └── testing_plan.md
+├── evidence/
+│   ├── benchmarks.json
+│   ├── loadtest_clean_stats.csv
+│   ├── loadtest_clean_stats_history.csv
+│   └── pytest.txt
+├── messaging/
+│   ├── consumer.py
+│   └── rabbitmq.py
+├── model/
+│   ├── svd_recommender.py
+│   └── train.py
+├── scripts/
+│   ├── generate_interactions.py
+│   └── generate_report.py
+├── tests/
+│   ├── locustfile.py
+│   ├── test_api.py
+│   ├── test_model.py
+│   └── test_security.py
+├── .dockerignore
+├── .env.example
+├── .gitignore
+├── docker-compose.yml
+├── Dockerfile
+├── pyproject.toml
+├── README.md
+└── requirements.txt
+```
+
+## 7. Modelo SVD
+
+El módulo [model/svd_recommender.py](model/svd_recommender.py) realiza:
+
+1. Lectura del CSV.
+2. Validación de columnas obligatorias.
+3. Eliminación de valores nulos o fuera de rango.
+4. Agrupación de interacciones repetidas por usuario y producto.
+5. Construcción de una matriz dispersa centrada en la media global.
+6. Descomposición SVD mediante `scipy.sparse.linalg.svds`.
+7. Cálculo de MAE y RMSE.
+8. Persistencia con Joblib.
+
+El entrenamiento se ejecuta con:
+
+```powershell
+python -m model.train
+```
+
+El resultado se guarda en:
+
+- `artifacts/svd_model.joblib`
+- `artifacts/model_metrics.json`
+
+### Fallback
+
+- Usuario conocido: recomendaciones calculadas con factores SVD.
+- Usuario desconocido: productos ordenados por popularidad.
+
+El fallback fue verificado localmente. No se presentan recomendaciones como
+resultado comercial real; son salidas del dataset sintético.
+
+## 8. Dataset y métricas
+
+El archivo `data/raw/interactions.csv` se genera con
+[scripts/generate_interactions.py](scripts/generate_interactions.py). Sus columnas
+actuales son:
+
+```text
+user_id,product_id,rating,timestamp
+```
+
+No existe actualmente un catálogo con nombre o categoría de producto. Por eso el
+dashboard muestra IDs y no inventa nombres.
+
+Métricas del artefacto entrenado:
+
+| Métrica | Valor |
 |---|---:|
 | Interacciones procesadas | 149.956 |
 | Usuarios observados | 47.506 |
-| Productos | 5.000 |
+| Productos observados | 5.000 |
 | Factores SVD | 20 |
 | MAE | 1,1953 |
 | RMSE | 1,3613 |
+| Media global | 2,9999 |
 
-El modelo entrenado se almacena mediante `svd_model.joblib`.
+## 9. API REST
 
-### Estrategia de fallback
+Iniciar la API localmente:
 
-El sistema contempla dos escenarios:
-
-- **Usuario conocido:** utiliza los factores aprendidos por el modelo SVD para generar recomendaciones personalizadas.
-- **Usuario desconocido:** utiliza una estrategia alternativa basada en popularidad de productos.
-
-Esta estrategia permite mantener la disponibilidad funcional de las recomendaciones cuando no existen factores aprendidos para un usuario.
-
-**Nota:** el conjunto de datos utilizado actualmente es sintético y se emplea para validación técnica y demostración académica.
-
-## 5. Dashboard empresarial
-
-El proyecto incorpora un dashboard interactivo desarrollado con Streamlit.
-
-Sus principales secciones son:
-
-- Resumen ejecutivo.
-- Recomendaciones personalizadas Top 10.
-- Comportamiento de usuarios.
-- Rendimiento del modelo SVD.
-- Métricas de calidad.
-- Estado de integraciones y servicios.
-
-El dashboard permite visualizar indicadores del modelo, comportamiento de los usuarios y estado de los componentes tecnológicos.
-
-### Ejecución local
-
-```bash
-python -m streamlit run dashboard/app.py
+```powershell
+uvicorn api.main:app --reload
 ```
 
-Acceso:
+URL local: `http://127.0.0.1:8000`
 
-`http://localhost:8501`
+Documentación interactiva:
 
-## 6. Desarrollo de APIs REST
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- OpenAPI JSON: `http://127.0.0.1:8000/openapi.json`
 
-La API de recomendaciones está desarrollada mediante FastAPI.
+### Endpoints
 
-### Endpoints principales
+| Método | Ruta | Autenticación | Función |
+|---|---|---|---|
+| `GET` | `/health` | No | Estado de API y modelo |
+| `POST` | `/auth/token` | No, solo desarrollo | Token JWT local |
+| `GET` | `/recommendations/{user_id}` | Bearer JWT | Recomendaciones Top 10 |
+| `GET` | `/products/top` | Bearer JWT | Productos populares |
+| `GET` | `/model/status` | Bearer JWT | Estado y métricas del modelo |
+| `GET` | `/metrics` | Bearer JWT | Métricas disponibles y objetivos |
+| `POST` | `/events/user-interaction` | Bearer JWT | Publicación de evento RabbitMQ |
 
-| Endpoint | Función |
+### Publicar un evento
+
+```powershell
+$auth = Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/auth/token
+
+$headers = @{
+  Authorization = "Bearer $($auth.access_token)"
+}
+
+$body = @{
+  user_id = 1
+  product_id = 3868
+  interaction = "recommendation_requested"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/events/user-interaction `
+  -Headers $headers `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+El endpoint valida `user_id`, `product_id` e `interaction`, y devuelve
+`503` si RabbitMQ no está disponible.
+
+## 10. Autenticación y seguridad
+
+- JWT firmado mediante PyJWT.
+- Esquema Bearer para rutas protegidas.
+- Expiración configurable.
+- Rate limiting con SlowAPI.
+- Cabeceras `X-Content-Type-Options`, `X-Frame-Options` y
+  `Referrer-Policy`.
+- Usuario y contraseña propios para RabbitMQ en `.env`.
+- `.env` está excluido de Git.
+- No se deben incluir contraseñas reales en código, README o `.env.example`.
+
+La autenticación local genera tokens de desarrollo. Para producción se requiere
+un proveedor de identidad, HTTPS y secretos gestionados de forma segura.
+
+## 11. Dashboard
+
+El dashboard está en [dashboard/app.py](dashboard/app.py) y se ejecuta con:
+
+```powershell
+streamlit run dashboard/app.py
+```
+
+URL local: `http://127.0.0.1:8501`
+
+Incluye:
+
+- Resumen ejecutivo.
+- Total de interacciones, usuarios y productos.
+- MAE y RMSE.
+- Recomendaciones Top 10.
+- Puntuación estimada cuando existe para el usuario.
+- Comportamiento semanal de interacciones.
+- Distribución de actividad por usuario.
+- Latencias API disponibles.
+- Indicadores de pruebas y calidad.
+- Estado local de SVD, RabbitMQ y AWS.
+
+El dashboard identifica los datos sintéticos y no muestra nombres, categorías,
+ventas o conversiones que no existan en las fuentes.
+
+## 12. Instalación local
+
+Requisitos:
+
+- Windows con Python 3.13 verificado.
+- Git.
+- Docker Desktop con WSL 2 para la ejecución de RabbitMQ.
+
+Crear el entorno virtual:
+
+```powershell
+cd C:\Users\chile\Desktop\Evaluacion_3
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Instalar dependencias:
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+Generar dataset y modelo:
+
+```powershell
+python scripts/generate_interactions.py `
+  --rows 150000 `
+  --users 50000 `
+  --products 5000
+
+python -m model.train
+```
+
+## 13. Variables de entorno
+
+Crear la configuración local sin subirla a Git:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Variables activas:
+
+| Variable | Uso |
 |---|---|
-| `/health` | Estado del servicio |
-| `/auth/token` | Autenticación JWT |
-| `/recommendations/{user_id}` | Recomendaciones personalizadas |
-| `/products/top` | Productos destacados |
-| `/model/status` | Estado del modelo |
-| `/metrics` | Métricas de rendimiento |
-| `/docs` | Documentación Swagger |
+| `JWT_SECRET` | Firma de tokens locales |
+| `JWT_ALGORITHM` | Algoritmo JWT |
+| `JWT_EXPIRATION_MINUTES` | Duración del token |
+| `RABBITMQ_URL` | URL local o de desarrollo del broker |
+| `RABBITMQ_USER` | Usuario del broker en Compose |
+| `RABBITMQ_PASSWORD` | Contraseña local del broker |
+| `MODEL_PATH` | Ruta del modelo cargado por la API |
 
-La implementación contempla autenticación JWT, limitación de solicitudes y validación de acceso.
+Variables reservadas para AWS o evolución futura:
 
-## 7. Middleware y mensajería – RabbitMQ
+```text
+AWS_REGION
+S3_BUCKET
+SAGEMAKER_ENDPOINT_NAME
+```
 
-La arquitectura incorpora RabbitMQ como sistema de mensajería para permitir la comunicación asíncrona entre microservicios.
+No se deben utilizar credenciales reales en `.env.example` ni versionarlas.
 
-### Componentes desarrollados
+## 14. Ejecución local
 
-- `rabbitmq.py`: integración del productor de mensajes.
-- `consumer.py`: procesamiento de mensajes.
-- `docker-compose.yml`: configuración de servicios mediante contenedores.
+En terminales separadas:
 
-### Objetivos de integración
+```powershell
+uvicorn api.main:app --reload
+```
 
-1. Publicación de eventos de interacción.
-2. Recepción de mensajes mediante colas.
-3. Procesamiento asíncrono.
-4. Gestión de errores y reintentos.
-5. Comunicación desacoplada entre servicios.
+```powershell
+streamlit run dashboard/app.py
+```
 
-**Estado:** código de integración preparado. La ejecución del broker mediante Docker y la validación de comunicación real están pendientes.
+Para el consumidor local, con RabbitMQ disponible:
 
-## 8. Integración AIaaS – AWS
+```powershell
+python -m messaging.consumer
+```
 
-La arquitectura contempla la integración de servicios de inteligencia artificial como servicio (AIaaS) mediante Amazon Web Services.
+Ejecutar pruebas:
 
-### Servicios considerados
+```powershell
+python -m pytest -p no:cacheprovider -q
+```
 
-| Servicio | Aplicación |
-|---|---|
-| Amazon S3 | Almacenamiento de dataset, modelos y artefactos |
-| Amazon SageMaker | Entrenamiento y endpoint de inferencia |
-| Amazon CloudWatch | Monitoreo de logs y métricas |
-| Amazon API Gateway | Acceso HTTPS y administración de solicitudes |
-| Amazon EKS | Orquestación de microservicios |
+La opción `-p no:cacheprovider` evita recrear la caché de pytest durante una
+validación limpia.
 
-### Arquitectura de despliegue
+## 15. Ejecución con Docker
 
-El modelo SVD será empaquetado y almacenado en S3 para su posterior utilización mediante SageMaker.
+Con Docker Desktop iniciado y `.env` creado:
 
-SageMaker permitirá exponer un endpoint de inferencia para el consumo empresarial desde la API REST.
+```powershell
+docker compose up --build -d
+docker compose ps
+```
 
-CloudWatch permitirá centralizar los registros y monitorear el funcionamiento de los servicios.
+Servicios:
 
-EKS se conserva como alternativa de orquestación para la arquitectura de microservicios.
+| Servicio | Puerto | Función |
+|---|---:|---|
+| `api` | 8000 | API FastAPI |
+| `consumer` | interno | Consumidor RabbitMQ |
+| `dashboard` | 8501 | Streamlit |
+| `rabbitmq` | 5672 | AMQP |
+| `rabbitmq` | 15672 | RabbitMQ Management |
 
-**Estado actual:** integración cloud diseñada y configuraciones preparadas. El despliegue de recursos AWS y la creación del endpoint de SageMaker están pendientes de ejecución y validación.
+Logs:
 
-### Consideraciones económicas
+```powershell
+docker compose logs -f api
+docker compose logs -f consumer
+docker compose logs -f rabbitmq
+```
 
-Se establece como referencia un presupuesto máximo de USD 200 mensuales para la infraestructura.
+Apagado normal:
 
-Los recursos de pago deberán evaluarse antes de su activación. Los endpoints de SageMaker deberán detenerse o eliminarse cuando no estén en uso.
+```powershell
+docker compose down
+```
 
-## 9. Informe de mejora del proceso empresarial
+El Compose usa `rabbitmq` como hostname interno. No debe utilizarse
+`localhost` entre contenedores.
 
-### Situación inicial
+## 16. RabbitMQ
 
-ShopFast presenta una conversión inicial informada del 2,3% y un ticket promedio de USD 85.
+La integración se implementa en:
 
-El escenario considera aproximadamente 150.000 interacciones históricas, 50.000 usuarios y 5.000 productos.
+- [messaging/rabbitmq.py](messaging/rabbitmq.py): productor, consumidor,
+  exchanges, colas, confirmación y reintentos.
+- [messaging/consumer.py](messaging/consumer.py): proceso independiente que
+  registra eventos procesados.
+- [docker-compose.yml](docker-compose.yml): broker y servicio consumidor.
 
-### Problemas identificados
+Topología:
 
-- Ausencia de recomendaciones personalizadas verificables.
-- Falta de validación automática de calidad.
-- Comunicación acoplada entre componentes.
-- Falta de observabilidad centralizada.
-- Riesgo de no entregar recomendaciones a usuarios desconocidos.
-
-### Solución propuesta e implementada
-
-La solución incorpora:
-
-- Modelo de recomendación SVD.
-- API REST mediante FastAPI.
-- Dashboard interactivo.
-- Estrategia de fallback por popularidad.
-- Código de integración RabbitMQ.
-- Preparación de infraestructura AWS.
-
-### Indicadores de mejora
-
-| Indicador | Situación inicial | Objetivo | Resultado |
-|---|---:|---:|---|
-| Conversión | 2,3% | 4,0% | Pendiente de prueba A/B |
-| Ticket promedio | USD 85 | USD 120 | Pendiente de prueba A/B |
-| Latencia API | Sin referencia inicial | Menos de 500 ms | Medición local disponible |
-| Disponibilidad | Sin referencia documentada | 99% | Pendiente de producción |
-| MAE | Sin referencia documentada | Reducir | 1,1953 |
-| RMSE | Sin referencia documentada | Reducir | 1,3613 |
-
-### Garantía de calidad
-
-La solución contempla pruebas unitarias, funcionales, de integración, seguridad y rendimiento.
-
-Los resultados comerciales deberán validarse con información real de producción. No se consideran demostrados los objetivos de conversión ni de ticket promedio.
-
-## 10. Plan de pruebas – Testing en 10 pasos
-
-El proceso de testing contempla diez etapas:
-
-| Paso | Tipo de prueba | Objetivo |
+| Elemento | Tipo | Propósito |
 |---|---|---|
-| 1 | Unitarias | Verificar limpieza de datos y entrenamiento |
-| 2 | Integración | Validar comunicación entre API y modelo |
-| 3 | Funcionales | Comprobar los flujos de usuario |
-| 4 | APIs | Validar endpoints y documentación Swagger |
-| 5 | Seguridad | Verificar JWT y controles de acceso |
-| 6 | Carga | Evaluar comportamiento ante concurrencia |
-| 7 | Rendimiento | Medir p50, p95 y p99 |
-| 8 | Predicciones | Validar Top 10 y estrategia fallback |
-| 9 | Manejo de errores | Evaluar respuestas y registros de errores |
-| 10 | Calidad final | Consolidar resultados y evidencias |
+| `shopfast.events` | Topic exchange | Entrada de eventos |
+| `shopfast.interactions` | Cola | Eventos normales |
+| `shopfast.retry` | Direct exchange | Reintentos |
+| `shopfast.interactions.retry` | Cola | Espera de 5 segundos |
+| `shopfast.dlx` | Direct exchange | Mensajes fallidos |
+| `shopfast.interactions.failed` | Cola | Errores definitivos |
 
-### Resultados locales reportados
+El consumidor confirma mensajes correctamente procesados. Los errores se
+reintentan hasta tres veces; JSON inválido o errores definitivos se envían a la
+cola de fallos.
 
-- Entrenamiento SVD ejecutado.
-- API REST validada.
-- Dashboard Streamlit operativo.
-- Pruebas automatizadas ejecutadas.
-- Recomendaciones Top 10 verificadas.
-- Fallback por popularidad comprobado.
+Management:
 
-Mediciones locales de latencia reportadas:
+```text
+http://localhost:15672
+```
 
-| Métrica | Resultado |
+Las credenciales son las definidas en `.env`.
+
+Validación real realizada localmente:
+
+- RabbitMQ saludable en Docker Compose.
+- API publicó un evento con `published: true`.
+- El consumidor registró `user.interaction`.
+- La cola principal quedó sin mensajes pendientes y con un consumidor activo.
+
+## 17. Pruebas y resultados
+
+La suite actual contiene:
+
+- `tests/test_model.py`: limpieza, entrenamiento y fallback.
+- `tests/test_api.py`: health, autenticación, validación y publicación de eventos.
+- `tests/test_security.py`: creación de tokens.
+- `tests/locustfile.py`: carga HTTP.
+
+Resultado de la última ejecución completa:
+
+```text
+10 passed, 1 warning
+```
+
+La advertencia corresponde a `pytest-asyncio` porque todavía no se ha fijado
+explícitamente `asyncio_default_fixture_loop_scope` en `pyproject.toml`.
+También puede aparecer una deprecación menor de `starlette.testclient`.
+
+## 18. Pruebas de carga y rendimiento
+
+Benchmark HTTP local registrado:
+
+| Percentil | Resultado |
 |---|---:|
 | p50 | 3,73 ms |
 | p95 | 4,91 ms |
 | p99 | 4,91 ms |
 
-Estas mediciones corresponden a pruebas locales y no representan rendimiento en AWS.
+Estas cifras corresponden a un entorno local y no demuestran el objetivo en AWS.
 
-Las pruebas de carga, integración real de RabbitMQ y validaciones pendientes deberán documentarse con sus respectivas evidencias.
+También existe un resultado limpio de Locust con un usuario, sin fallos, en:
 
-## 11. Estructura del proyecto
+- `evidence/loadtest_clean_stats.csv`
+- `evidence/loadtest_clean_stats_history.csv`
 
-```text
-SHOPFAST_EP3/
-│
-├── api/
-│   ├── main.py
-│   └── auth.py
-│
-├── aws/
-│   ├── cloudformation.yml
-│   ├── sagemaker_config.json
-│   └── inference.py
-│
-├── dashboard/
-│   └── app.py
-│
-├── model/
-│   ├── svd_recommender.py
-│   └── train.py
-│
-├── messaging/
-│   ├── rabbitmq.py
-│   └── consumer.py
-│
-├── tests/
-│   ├── test_api.py
-│   ├── test_model.py
-│   └── test_security.py
-│
-├── data/
-├── evidence/
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-└── README.md
-```
+Una prueba previa con más usuarios produjo respuestas `429` por el rate limiting
+configurado. Ese resultado demuestra la protección, pero no debe interpretarse
+como una medición de capacidad productiva.
 
-La estructura representa los componentes principales del proyecto. Los nombres y ubicaciones definitivos deberán corresponder a los archivos existentes en el repositorio.
-
-## 12. Instalación y ejecución local
-
-### Requisitos
-
-- Python 3.11 o compatible con las dependencias.
-- Visual Studio Code.
-- Git.
-- Entorno virtual Python.
-
-### Crear entorno virtual
-
-```bash
-python -m venv .venv
-```
-
-Windows PowerShell:
+Ejecutar una prueba controlada:
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
+locust -f tests/locustfile.py `
+  --host http://127.0.0.1:8000 `
+  --headless `
+  -u 1 `
+  -r 1 `
+  -t 5s
 ```
 
-### Instalar dependencias
+## 19. AWS y SageMaker
 
-```bash
-pip install -r requirements.txt
-```
+La carpeta `aws/` contiene preparación, no un despliegue activo:
 
-### Ejecutar API
+- `aws/cloudformation.yml`: S3 y CloudWatch.
+- `aws/inference.py`: handlers de inferencia compatibles con SageMaker.
+- `aws/sagemaker_config.json`: configuración de referencia.
+- `aws/README.md`: controles de costo y pasos manuales.
 
-```bash
-uvicorn api.main:app --reload
-```
+Estado:
 
-La ruta exacta dependerá de la ubicación del módulo principal configurada en el proyecto.
+| Servicio | Estado |
+|---|---|
+| S3 | Configuración preparada; bucket no creado por este repositorio |
+| SageMaker | Configuración e inferencia preparadas; endpoint no desplegado |
+| CloudWatch | Log group preparado en CloudFormation; no verificado en AWS |
+| EKS | Considerado en arquitectura futura; no desplegado |
+| API Gateway/HTTPS | Recomendado para producción; no desplegado |
 
-### Ejecutar dashboard
+No se han incluido credenciales AWS. Antes de desplegar se debe:
 
-```bash
-python -m streamlit run dashboard/app.py
-```
+1. Autorizar costos.
+2. Configurar un presupuesto de USD 200.
+3. Revisar la región y el tipo de instancia.
+4. Crear S3 y subir artefactos.
+5. Desplegar SageMaker solo durante la validación.
+6. Configurar logs y alertas.
+7. Eliminar o detener recursos cuando no estén en uso.
 
-### Ejecutar pruebas
+## 20. Evidencias
 
-```bash
-pytest -v
-```
+| Evidencia | Contenido |
+|---|---|
+| `artifacts/model_metrics.json` | Métricas del entrenamiento SVD |
+| `artifacts/svd_model.joblib` | Modelo entrenado |
+| `evidence/pytest.txt` | Resultado de pruebas registrado |
+| `evidence/benchmarks.json` | Benchmark local de API |
+| `evidence/loadtest_clean_stats.csv` | Resultado limpio de Locust |
+| `evidence/loadtest_clean_stats_history.csv` | Historial del resultado limpio |
+| `docs/Informe_Tecnico_ShopFast_EP3.pdf` | Informe técnico |
+| `docs/testing_plan.md` | Plan de pruebas de diez pasos |
+| `docs/business_improvement.md` | Análisis de mejora empresarial |
+| `docs/presentation.md` | Guion de presentación |
 
-## 13. Ruta de despliegue AWS
+## 21. Limitaciones y mejoras futuras
 
-El despliegue cloud contempla las siguientes etapas:
+### Limitaciones actuales
 
-1. Validar las pruebas locales.
-2. Obtener autorización para utilizar recursos de pago.
-3. Crear bucket S3.
-4. Subir dataset y artefactos del modelo.
-5. Preparar imagen de ejecución para SageMaker.
-6. Crear modelo y configuración del endpoint.
-7. Desplegar endpoint de inferencia.
-8. Verificar costos estimados.
-9. Configurar monitoreo y alertas.
-10. Eliminar los recursos que no estén en uso.
+- El dataset es sintético.
+- No existe catálogo con nombres y categorías.
+- Conversión, ticket y disponibilidad no tienen medición productiva.
+- AWS no está desplegado.
+- No existe MySQL conectado.
+- Node.js no está presente en el repositorio actual.
+- No se ha configurado HTTPS productivo.
+- La advertencia de pytest-asyncio sigue pendiente.
+- Las métricas de rendimiento son locales.
 
-Los archivos de configuración contienen valores de referencia y deberán completarse con identificadores y recursos reales antes del despliegue.
+### Mejoras futuras
 
-## 14. Conclusiones
+1. Sustituir el dataset sintético por datos anonimizados reales.
+2. Incorporar un catálogo producto-nombre-categoría.
+3. Ejecutar una prueba A/B para conversión y ticket.
+4. Completar la prueba de carga con un escenario distribuido y documentado.
+5. Configurar HTTPS y un proveedor de identidad productivo.
+6. Integrar persistencia transaccional real.
+7. Implementar reentrenamiento controlado.
+8. Desplegar AWS solo con autorización de costos.
+9. Configurar métricas y alarmas de producción.
 
-ShopFast establece una arquitectura empresarial de inteligencia artificial orientada a la personalización de recomendaciones en comercio electrónico.
+## 22. Conclusiones
 
-La implementación local demuestra la viabilidad técnica del modelo SVD, la API REST, el dashboard y los mecanismos de fallback.
+ShopFast EP3 evolucionó desde un diseño académico de microservicios hacia un
+prototipo local funcional. El repositorio actual demuestra un modelo SVD
+entrenado, API REST, dashboard, autenticación, rate limiting, Docker Compose y
+mensajería RabbitMQ verificada.
 
-La integración de mensajería y los servicios AIaaS permitirá evolucionar hacia una arquitectura desacoplada, escalable y preparada para infraestructura cloud.
+La integración AWS está preparada como siguiente etapa, pero no debe presentarse
+como un servicio operativo. Del mismo modo, los objetivos de negocio requieren
+datos reales y experimentación controlada.
 
-El impacto comercial deberá demostrarse mediante pruebas controladas y métricas reales de producción.
+## 23. Referencias
 
----
+- [Plan de pruebas](docs/testing_plan.md)
+- [Informe de mejora empresarial](docs/business_improvement.md)
+- [Integración AWS](docs/aws_integration.md)
+- [Preparación AWS sin despliegue](aws/README.md)
+- [Guion de presentación](docs/presentation.md)
+- [Informe técnico PDF](docs/Informe_Tecnico_ShopFast_EP3.pdf)
+- [Documentación Swagger local](http://127.0.0.1:8000/docs), disponible al iniciar la API
 
-**Proyecto académico desarrollado para la Evaluación Parcial 3 de Arquitectura de Sistemas de IA – Duoc UC.**
-
-**Docente:** Ricardo Aravena  
-**Integrantes:** Simón Mena y Benjamín Castro
