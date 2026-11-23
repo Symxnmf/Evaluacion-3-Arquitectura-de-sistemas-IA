@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -12,6 +13,9 @@ import streamlit as st
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 METRICS_PATH = ROOT / "artifacts" / "model_metrics.json"
 MODEL_PATH = ROOT / "artifacts" / "svd_model.joblib"
 DATA_PATH = ROOT / "data" / "raw" / "interactions.csv"
